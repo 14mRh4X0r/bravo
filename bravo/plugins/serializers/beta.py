@@ -19,6 +19,7 @@ from bravo.location import Location, Orientation, Position
 from bravo.nbt import NBTFile
 from bravo.nbt import TAG_Compound, TAG_List, TAG_Byte_Array, TAG_String
 from bravo.nbt import TAG_Double, TAG_Long, TAG_Short, TAG_Int, TAG_Byte
+from bravo.nbt import TAG_Int_Array
 from bravo.region import MissingChunk, Region
 from bravo.utilities.bits import unpack_nibbles, pack_nibbles
 from bravo.utilities.paths import name_for_anvil
@@ -291,14 +292,14 @@ class Anvil(object):
             section.blocks = array("B")
             section.blocks.fromstring(tag["Blocks"].value)
             section.metadata = array("B", unpack_nibbles(tag["Data"].value))
+            section.blocklight = array("B",
+                                       unpack_nibbles(tag["BlockLight"].value))
             section.skylight = array("B",
                                      unpack_nibbles(tag["SkyLight"].value))
             chunk.sections[index] = section
 
-        chunk.heightmap = array("B")
+        chunk.heightmap = array("I")
         chunk.heightmap.fromstring(level["HeightMap"].value)
-        chunk.blocklight = array("B",
-            unpack_nibbles(level["BlockLight"].value))
 
         chunk.populated = bool(level["TerrainPopulated"])
 
@@ -334,9 +335,7 @@ class Anvil(object):
         level["xPos"] = TAG_Int(chunk.x)
         level["zPos"] = TAG_Int(chunk.z)
 
-        level["HeightMap"] = TAG_Byte_Array()
-        level["BlockLight"] = TAG_Byte_Array()
-        level["SkyLight"] = TAG_Byte_Array()
+        level["HeightMap"] = TAG_Int_Array()
 
         level["Sections"] = TAG_List(type=TAG_Compound)
         for i, s in enumerate(chunk.sections):
@@ -348,12 +347,13 @@ class Anvil(object):
                 section["Blocks"].value = s.blocks.tostring()
                 section["Data"] = TAG_Byte_Array()
                 section["Data"].value = pack_nibbles(s.metadata)
+                section["BlockLight"] = TAG_Byte_Array()
+                section["BlockLight"].value = pack_nibbles(s.blocklight)
                 section["SkyLight"] = TAG_Byte_Array()
                 section["SkyLight"].value = pack_nibbles(s.skylight)
                 level["Sections"].tags.append(section)
 
         level["HeightMap"].value = chunk.heightmap.tostring()
-        level["BlockLight"].value = pack_nibbles(chunk.blocklight)
 
         level["TerrainPopulated"] = TAG_Byte(chunk.populated)
 

@@ -15,6 +15,7 @@ TAG_BYTE_ARRAY = 7
 TAG_STRING = 8
 TAG_LIST = 9
 TAG_COMPOUND = 10
+TAG_INT_ARRAY = 11
 
 class TAG(object):
     """Each Tag needs to take a file-like object for reading and writing.
@@ -145,8 +146,9 @@ class TAG_List(TAG):
         self.tags = []
         if buffer:
             self._parse_buffer(buffer)
-        if not self.tagID:
-            raise ValueError("No type specified for list")
+        # Could be an empty list.
+        if len(self.tags) and not self.tagID:
+            raise ValueError("No type specified for non-empty list")
 
     #Parsers and Generators
     def _parse_buffer(self, buffer, offset=None):
@@ -168,7 +170,10 @@ class TAG_List(TAG):
 
     #Printing and Formatting of tree
     def __repr__(self):
-        return "%i entries of type %s" % (len(self.tags), TAGLIST[self.tagID].__name__)
+        if not self.tagID:
+            return "no entries"
+        else:
+            return "%i entries of type %s" % (len(self.tags), TAGLIST[self.tagID].__name__)
 
     def pretty_tree(self, indent=0):
         output = [super(TAG_List,self).pretty_tree(indent)]
@@ -202,7 +207,7 @@ class TAG_Compound(TAG, DictMixin):
                     tag.name = name
                     self.tags.append(tag)
                 except KeyError:
-                    raise ValueError("Unrecognised tag type")
+                    raise ValueError("Unrecognised tag type: %d" % type.value)
 
     def _render_buffer(self, buffer, offset=None):
         for tag in self.tags:
@@ -266,8 +271,34 @@ class TAG_Compound(TAG, DictMixin):
             output.append(("\t"*indent) + "}")
         return '\n'.join(output)
 
+class TAG_Int_Array(TAG):
+    id = TAG_INT_ARRAY
 
-TAGLIST = {TAG_BYTE:TAG_Byte, TAG_SHORT:TAG_Short, TAG_INT:TAG_Int, TAG_LONG:TAG_Long, TAG_FLOAT:TAG_Float, TAG_DOUBLE:TAG_Double, TAG_BYTE_ARRAY:TAG_Byte_Array, TAG_STRING:TAG_String, TAG_LIST:TAG_List, TAG_COMPOUND:TAG_Compound}
+    def __init__(self, buffer=None):
+        super(TAG_Int_Array, self).__init__()
+        self.value = ''
+        if buffer:
+            self._parse_buffer(buffer)
+
+    @property
+    def length(self):
+        return len(self.value) / TAG_Int.fmt.size
+
+    #Parsers and Generators
+    def _parse_buffer(self, buffer, offset=None):
+        length = TAG_Int(buffer=buffer)
+        self.value = buffer.read(length.value * TAG_Int.fmt.size)
+
+    def _render_buffer(self, buffer, offset=None):
+        length = TAG_Int(self.length)
+        length._render_buffer(buffer, offset)
+        buffer.write(self.value)
+
+    #Printing and Formatting of tree
+    def __repr__(self):
+        return "[%i ints]" % self.length
+
+TAGLIST = {TAG_BYTE:TAG_Byte, TAG_SHORT:TAG_Short, TAG_INT:TAG_Int, TAG_LONG:TAG_Long, TAG_FLOAT:TAG_Float, TAG_DOUBLE:TAG_Double, TAG_BYTE_ARRAY:TAG_Byte_Array, TAG_STRING:TAG_String, TAG_LIST:TAG_List, TAG_COMPOUND:TAG_Compound, TAG_INT_ARRAY: TAG_Int_Array}
 
 class NBTFile(TAG_Compound):
     """Represents an NBT file object"""

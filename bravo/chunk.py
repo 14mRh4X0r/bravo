@@ -226,8 +226,7 @@ class Chunk(object):
         self.x = int(x)
         self.z = int(z)
 
-        self.heightmap = array("B", [0] * (16 * 16))
-        self.blocklight = array("B", [0] * (16 * 16 * CHUNK_HEIGHT))
+        self.heightmap = array("I", [0] * (16 * 16))
 
         self.sections = [Section() for i in range(16)]
 
